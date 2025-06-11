@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface BudgetItem {
   id: string;
@@ -16,13 +19,10 @@ interface BudgetItem {
 }
 
 const Budget = () => {
-  const [budgets, setBudgets] = useState<BudgetItem[]>([
-    { id: '1', category: 'Food', budgetAmount: 8000, spentAmount: 2500 },
-    { id: '2', category: 'Transportation', budgetAmount: 3000, spentAmount: 1200 },
-    { id: '3', category: 'Entertainment', budgetAmount: 2000, spentAmount: 800 },
-    { id: '4', category: 'Medical', budgetAmount: 1500, spentAmount: 0 },
-  ]);
-
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
@@ -33,26 +33,105 @@ const Budget = () => {
     'Utilities', 'Shopping', 'Miscellaneous'
   ];
 
+  // Fetch budgets and expenses from database
+  useEffect(() => {
+    if (user) {
+      fetchBudgets();
+    }
+  }, [user]);
+
+  const fetchBudgets = async () => {
+    try {
+      // Fetch budgets
+      const { data: budgetsData, error: budgetsError } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (budgetsError) throw budgetsError;
+
+      // Fetch expenses to calculate spent amounts
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('expenses')
+        .select('category, amount')
+        .eq('user_id', user?.id);
+
+      if (expensesError) throw expensesError;
+
+      // Calculate spent amounts by category
+      const spentByCategory = expensesData?.reduce((acc, expense) => {
+        acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Combine budgets with spent amounts
+      const budgetItems: BudgetItem[] = budgetsData?.map(budget => ({
+        id: budget.id,
+        category: budget.category,
+        budgetAmount: budget.amount,
+        spentAmount: spentByCategory[budget.category] || 0
+      })) || [];
+
+      setBudgets(budgetItems);
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load budgets",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addBudget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!category || !amount) return;
+
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .insert({
+          user_id: user?.id,
+          category,
+          amount: parseFloat(amount)
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Budget created successfully"
+      });
+
+      setCategory('');
+      setAmount('');
+      setShowForm(false);
+      fetchBudgets(); // Refresh the list
+    } catch (error) {
+      console.error('Error adding budget:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create budget",
+        variant: "destructive"
+      });
+    }
+  };
+
   const totalBudget = budgets.reduce((sum, b) => sum + b.budgetAmount, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spentAmount, 0);
   const remainingBudget = totalBudget - totalSpent;
 
-  const addBudget = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!category || !amount) return;
-
-    const newBudget: BudgetItem = {
-      id: Date.now().toString(),
-      category,
-      budgetAmount: parseFloat(amount),
-      spentAmount: 0,
-    };
-
-    setBudgets([...budgets, newBudget]);
-    setCategory('');
-    setAmount('');
-    setShowForm(false);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -124,47 +203,56 @@ const Budget = () => {
 
       {/* Budget Categories */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {budgets.map((budget) => {
-          const progressPercentage = (budget.spentAmount / budget.budgetAmount) * 100;
-          const isOverBudget = progressPercentage > 100;
-          
-          return (
-            <Card key={budget.id} className="p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{budget.category}</h3>
-                <Button variant="ghost" size="sm">
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Spent</span>
-                  <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-gray-900'}`}>
-                    ₹{budget.spentAmount.toLocaleString()} / ₹{budget.budgetAmount.toLocaleString()}
-                  </span>
+        {budgets.length > 0 ? (
+          budgets.map((budget) => {
+            const progressPercentage = (budget.spentAmount / budget.budgetAmount) * 100;
+            const isOverBudget = progressPercentage > 100;
+            
+            return (
+              <Card key={budget.id} className="p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">{budget.category}</h3>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
                 </div>
                 
-                <Progress 
-                  value={Math.min(progressPercentage, 100)} 
-                  className={`h-2 ${isOverBudget ? 'bg-red-100' : 'bg-gray-200'}`}
-                />
-                
-                <div className="flex justify-between text-sm">
-                  <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
-                    {isOverBudget 
-                      ? `Over by ₹${(budget.spentAmount - budget.budgetAmount).toLocaleString()}`
-                      : `₹${(budget.budgetAmount - budget.spentAmount).toLocaleString()} remaining`
-                    }
-                  </span>
-                  <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-gray-600'}`}>
-                    {progressPercentage.toFixed(1)}%
-                  </span>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Spent</span>
+                    <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-gray-900'}`}>
+                      ₹{budget.spentAmount.toLocaleString()} / ₹{budget.budgetAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  
+                  <Progress 
+                    value={Math.min(progressPercentage, 100)} 
+                    className={`h-2 ${isOverBudget ? 'bg-red-100' : 'bg-gray-200'}`}
+                  />
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
+                      {isOverBudget 
+                        ? `Over by ₹${(budget.spentAmount - budget.budgetAmount).toLocaleString()}`
+                        : `₹${(budget.budgetAmount - budget.spentAmount).toLocaleString()} remaining`
+                      }
+                    </span>
+                    <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-gray-600'}`}>
+                      {progressPercentage.toFixed(1)}%
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </Card>
+            );
+          })
+        ) : (
+          <div className="lg:col-span-2">
+            <Card className="p-8 text-center">
+              <p className="text-gray-500 mb-4">No budgets created yet</p>
+              <p className="text-sm text-gray-400">Click "Add Budget" to create your first budget</p>
             </Card>
-          );
-        })}
+          </div>
+        )}
       </div>
     </div>
   );
