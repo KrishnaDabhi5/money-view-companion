@@ -8,6 +8,7 @@ import { Wallet, TrendingUp, TrendingDown, PieChart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
 
 interface Transaction {
   id: string;
@@ -21,14 +22,59 @@ interface Transaction {
 const Dashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { metrics, loading: metricsLoading } = useRealtimeDashboard();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch transactions from database
+  // Fetch recent transactions
   useEffect(() => {
     if (user) {
       fetchTransactions();
     }
+  }, [user]);
+
+  // Set up real-time subscription for transactions list
+  useEffect(() => {
+    if (!user) return;
+
+    const expensesChannel = supabase
+      .channel('dashboard-transactions-expenses')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expenses',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          console.log('Expenses changed, refreshing transactions...');
+          fetchTransactions();
+        }
+      )
+      .subscribe();
+
+    const incomeChannel = supabase
+      .channel('dashboard-transactions-income')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'income',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          console.log('Income changed, refreshing transactions...');
+          fetchTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(expensesChannel);
+      supabase.removeChannel(incomeChannel);
+    };
   }, [user]);
 
   const fetchTransactions = async () => {
@@ -38,7 +84,8 @@ const Dashboard = () => {
         .from('expenses')
         .select('*')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5);
 
       if (expensesError) throw expensesError;
 
@@ -47,7 +94,8 @@ const Dashboard = () => {
         .from('income')
         .select('*')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5);
 
       if (incomeError) throw incomeError;
 
@@ -71,7 +119,8 @@ const Dashboard = () => {
       })) || [];
 
       const allTransactions = [...expenseTransactions, ...incomeTransactions]
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5);
 
       setTransactions(allTransactions);
     } catch (error) {
@@ -119,8 +168,7 @@ const Dashboard = () => {
         description: `${transaction.type === 'expense' ? 'Expense' : 'Income'} added successfully`
       });
 
-      // Refresh transactions
-      fetchTransactions();
+      // Real-time subscription will handle the refresh automatically
     } catch (error) {
       console.error('Error adding transaction:', error);
       toast({
@@ -131,45 +179,11 @@ const Dashboard = () => {
     }
   };
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  
-  const monthlyTransactions = transactions.filter(t => {
-    const transactionDate = new Date(t.date);
-    return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
-  });
-
-  const totalIncome = monthlyTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalExpenses = monthlyTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const balance = totalIncome - totalExpenses;
-  const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : '0';
-
-  // Prepare chart data
-  const expensesByCategory = monthlyTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-  const pieChartData = Object.entries(expensesByCategory).map(([name, value]) => ({
-    name,
-    value,
-  }));
-
-  const recentTransactions = transactions.slice(0, 5);
-
-  if (loading) {
+  if (loading || metricsLoading || !metrics) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -181,26 +195,26 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Balance"
-          value={`₹${balance.toLocaleString()}`}
+          value={`₹${metrics.balance.toLocaleString()}`}
           icon={<Wallet className="h-6 w-6 text-white" />}
-          trend={{ value: `${savingsRate}%`, isPositive: balance >= 0 }}
+          trend={{ value: `${metrics.savingsRate}%`, isPositive: metrics.balance >= 0 }}
         />
         <StatCard
           title="Monthly Income"
-          value={`₹${totalIncome.toLocaleString()}`}
+          value={`₹${metrics.totalIncome.toLocaleString()}`}
           icon={<TrendingUp className="h-6 w-6 text-white" />}
           trend={{ value: "From all sources", isPositive: true }}
         />
         <StatCard
           title="Monthly Expenses"
-          value={`₹${totalExpenses.toLocaleString()}`}
+          value={`₹${metrics.totalExpenses.toLocaleString()}`}
           icon={<TrendingDown className="h-6 w-6 text-white" />}
         />
         <StatCard
           title="Savings Rate"
-          value={`${savingsRate}%`}
+          value={`${metrics.savingsRate}%`}
           icon={<PieChart className="h-6 w-6 text-white" />}
-          trend={{ value: "This month", isPositive: parseFloat(savingsRate) > 20 }}
+          trend={{ value: "This month", isPositive: parseFloat(metrics.savingsRate) > 20 }}
         />
       </div>
 
@@ -215,7 +229,7 @@ const Dashboard = () => {
         <div className="lg:col-span-2">
           <ChartCard
             title="Spending Breakdown"
-            data={pieChartData}
+            data={metrics.pieChartData}
             type="pie"
           />
         </div>
@@ -225,8 +239,8 @@ const Dashboard = () => {
       <Card className="p-6 bg-white shadow-sm">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h3>
         <div className="space-y-3">
-          {recentTransactions.length > 0 ? (
-            recentTransactions.map((transaction) => (
+          {transactions.length > 0 ? (
+            transactions.map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3">

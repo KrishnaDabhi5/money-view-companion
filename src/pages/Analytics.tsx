@@ -4,38 +4,27 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { useRealtimeAnalytics } from '@/hooks/useRealtimeAnalytics';
 
 const Analytics = () => {
   const [timeframe, setTimeframe] = useState('monthly');
+  const { analyticsData, loading } = useRealtimeAnalytics(timeframe);
 
-  const monthlyData = [
-    { month: 'Jan', income: 50000, expenses: 35000, savings: 15000 },
-    { month: 'Feb', income: 52000, expenses: 38000, savings: 14000 },
-    { month: 'Mar', income: 50000, expenses: 42000, savings: 8000 },
-    { month: 'Apr', income: 55000, expenses: 36000, savings: 19000 },
-    { month: 'May', income: 50000, expenses: 41000, savings: 9000 },
-    { month: 'Jun', income: 50000, expenses: 35000, savings: 15000 },
-  ];
+  if (loading || !analyticsData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Loading analytics...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const spendingTrend = [
-    { date: 'Week 1', amount: 8000 },
-    { date: 'Week 2', amount: 12000 },
-    { date: 'Week 3', amount: 9500 },
-    { date: 'Week 4', amount: 11200 },
-  ];
-
-  const categoryData = [
-    { name: 'Food', value: 8000, percentage: 35 },
-    { name: 'Transportation', value: 3500, percentage: 15 },
-    { name: 'Entertainment', value: 2800, percentage: 12 },
-    { name: 'Medical', value: 2200, percentage: 10 },
-    { name: 'Utilities', value: 4500, percentage: 20 },
-    { name: 'Others', value: 1800, percentage: 8 },
-  ];
+  const { monthlyData, spendingTrend, categoryData, keyMetrics } = analyticsData;
 
   const savingsRate = monthlyData.map(item => ({
     month: item.month,
-    rate: ((item.savings / item.income) * 100).toFixed(1)
+    rate: item.income > 0 ? ((item.savings / item.income) * 100).toFixed(1) : '0'
   }));
 
   return (
@@ -59,23 +48,25 @@ const Analytics = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6 bg-white shadow-sm">
           <h3 className="text-sm font-medium text-gray-600">Average Daily Spend</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-1">₹1,167</p>
-          <p className="text-sm text-green-600 mt-1">-5% from last month</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">₹{keyMetrics.averageDailySpend.toLocaleString()}</p>
+          <p className="text-sm text-blue-600 mt-1">Real-time data</p>
         </Card>
         <Card className="p-6 bg-white shadow-sm">
           <h3 className="text-sm font-medium text-gray-600">Highest Expense</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-1">₹8,000</p>
-          <p className="text-sm text-gray-600 mt-1">Food & Dining</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">₹{keyMetrics.highestExpense.amount.toLocaleString()}</p>
+          <p className="text-sm text-gray-600 mt-1">{keyMetrics.highestExpense.category}</p>
         </Card>
         <Card className="p-6 bg-white shadow-sm">
           <h3 className="text-sm font-medium text-gray-600">Most Frequent</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-1">Food</p>
-          <p className="text-sm text-gray-600 mt-1">23 transactions</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{keyMetrics.mostFrequent.category}</p>
+          <p className="text-sm text-gray-600 mt-1">{keyMetrics.mostFrequent.count} transactions</p>
         </Card>
         <Card className="p-6 bg-white shadow-sm">
           <h3 className="text-sm font-medium text-gray-600">Budget Status</h3>
-          <p className="text-2xl font-bold text-green-600 mt-1">On Track</p>
-          <p className="text-sm text-gray-600 mt-1">85% utilized</p>
+          <p className={`text-2xl font-bold mt-1 ${keyMetrics.budgetUtilization <= 100 ? 'text-green-600' : 'text-red-600'}`}>
+            {keyMetrics.budgetUtilization <= 100 ? 'On Track' : 'Over Budget'}
+          </p>
+          <p className="text-sm text-gray-600 mt-1">{keyMetrics.budgetUtilization}% utilized</p>
         </Card>
       </div>
 
@@ -108,7 +99,7 @@ const Analytics = () => {
 
         {/* Spending Trend */}
         <Card className="p-6 bg-white shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Weekly Spending Trend</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Spending Trend</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={spendingTrend}>
@@ -157,15 +148,28 @@ const Analytics = () => {
         <div className="space-y-3">
           <div className="flex items-start space-x-3">
             <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-            <p className="text-gray-700">Your food expenses increased by 15% this month. Consider meal planning to reduce costs.</p>
+            <p className="text-gray-700">
+              {categoryData.length > 0 
+                ? `Your top spending category is ${categoryData[0]?.name} at ₹${categoryData[0]?.value?.toLocaleString()}.`
+                : 'Start tracking expenses to see insights.'}
+            </p>
           </div>
           <div className="flex items-start space-x-3">
             <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-            <p className="text-gray-700">Great job! You're saving 30% of your income, which is above the recommended 20%.</p>
+            <p className="text-gray-700">
+              {monthlyData.length > 0 && monthlyData[monthlyData.length - 1]?.savings > 0
+                ? `Great job! You saved ₹${monthlyData[monthlyData.length - 1]?.savings?.toLocaleString()} this period.`
+                : 'Consider setting a savings target to improve your financial health.'}
+            </p>
           </div>
           <div className="flex items-start space-x-3">
             <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-            <p className="text-gray-700">You spend the most on Fridays. Consider setting a weekly entertainment budget.</p>
+            <p className="text-gray-700">
+              Your budget utilization is {keyMetrics.budgetUtilization}%. 
+              {keyMetrics.budgetUtilization > 100 
+                ? ' Consider reviewing your spending or adjusting your budget.'
+                : ' You\'re staying within your budget limits.'}
+            </p>
           </div>
         </div>
       </Card>
