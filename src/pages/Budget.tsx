@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,11 @@ const Budget = () => {
   const [showForm, setShowForm] = useState(false);
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
+  
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
+  const [editAmount, setEditAmount] = useState('');
 
   const categories = [
     'Food', 'Medical', 'Clothes', 'Electricity', 'Mobile Recharge', 
@@ -117,6 +122,46 @@ const Budget = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const editBudget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBudget || !editAmount) return;
+
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .update({
+          amount: parseFloat(editAmount)
+        })
+        .eq('id', editingBudget.id)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Budget updated successfully"
+      });
+
+      setEditDialogOpen(false);
+      setEditingBudget(null);
+      setEditAmount('');
+      fetchBudgets(); // Refresh the list
+    } catch (error) {
+      console.error('Error updating budget:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update budget",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditClick = (budget: BudgetItem) => {
+    setEditingBudget(budget);
+    setEditAmount(budget.budgetAmount.toString());
+    setEditDialogOpen(true);
   };
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.budgetAmount, 0);
@@ -212,9 +257,57 @@ const Budget = () => {
               <Card key={budget.id} className="p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">{budget.category}</h3>
-                  <Button variant="ghost" size="sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <Dialog open={editDialogOpen && editingBudget?.id === budget.id} onOpenChange={(open) => {
+                    if (!open) {
+                      setEditDialogOpen(false);
+                      setEditingBudget(null);
+                      setEditAmount('');
+                    }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditClick(budget)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit Budget - {budget.category}</DialogTitle>
+                      </DialogHeader>
+                      <form onSubmit={editBudget} className="space-y-4">
+                        <div>
+                          <Label htmlFor="edit-amount">Budget Amount (₹)</Label>
+                          <Input
+                            id="edit-amount"
+                            type="number"
+                            placeholder="0.00"
+                            value={editAmount}
+                            onChange={(e) => setEditAmount(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button 
+                            type="button" 
+                            variant="outline"
+                            onClick={() => {
+                              setEditDialogOpen(false);
+                              setEditingBudget(null);
+                              setEditAmount('');
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button type="submit">
+                            Update Budget
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 
                 <div className="space-y-3">
