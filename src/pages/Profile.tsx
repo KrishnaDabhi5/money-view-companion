@@ -142,36 +142,40 @@ const Profile = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Profile Header */}
-      <Card className="p-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-        <div className="flex items-center space-x-6">
-          <Avatar className="h-24 w-24 border-4 border-white">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+      {/* Profile Header - Mobile Optimized */}
+      <Card className="p-4 md:p-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+          <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white">
             <AvatarImage src="/placeholder.svg" />
-            <AvatarFallback className="text-2xl bg-white text-blue-600">
+            <AvatarFallback className="text-xl md:text-2xl bg-white text-blue-600">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold">{displayName}</h1>
-            <p className="text-blue-100 mt-1">Personal Finance Tracker User</p>
-            <div className="flex items-center space-x-4 mt-3">
-              <Badge variant="secondary" className="bg-white/20 text-white">
+          
+          <div className="flex-1 text-center sm:text-left">
+            <h1 className="text-2xl md:text-3xl font-bold">{displayName}</h1>
+            <p className="text-blue-100 mt-1 text-sm md:text-base">Personal Finance Tracker User</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start space-y-2 sm:space-y-0 sm:space-x-4 mt-3">
+              <Badge variant="secondary" className="bg-white/20 text-white text-xs">
                 <Calendar className="h-3 w-3 mr-1" />
                 Member since {memberSince}
               </Badge>
-              <Badge variant="secondary" className="bg-white/20 text-white">
+              <Badge variant="secondary" className="bg-white/20 text-white text-xs">
                 <Target className="h-3 w-3 mr-1" />
                 Goal: ₹{profile.current_monthly_goal.toLocaleString()}
               </Badge>
             </div>
           </div>
-          <div className="flex space-x-2">
+          
+          {/* Action Buttons - Mobile Optimized */}
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
             {editing || editingGoal ? (
               <>
                 <Button
                   variant="outline"
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  size="sm"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-full sm:w-auto"
                   onClick={handleCancel}
                   disabled={saving}
                 >
@@ -180,7 +184,8 @@ const Profile = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  className="bg-green-600/20 border-green-400/20 text-white hover:bg-green-600/30"
+                  size="sm"
+                  className="bg-green-600/20 border-green-400/20 text-white hover:bg-green-600/30 w-full sm:w-auto"
                   onClick={editingGoal ? handleUpdateGoal : handleSave}
                   disabled={saving}
                 >
@@ -192,7 +197,8 @@ const Profile = () => {
               <>
                 <Button
                   variant="outline"
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  size="sm"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-full sm:w-auto"
                   onClick={handleEdit}
                 >
                   <Edit className="h-4 w-4 mr-2" />
@@ -200,7 +206,8 @@ const Profile = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  className="bg-green-600/20 border-green-400/20 text-white hover:bg-green-600/30"
+                  size="sm"
+                  className="bg-green-600/20 border-green-400/20 text-white hover:bg-green-600/30 w-full sm:w-auto"
                   onClick={handleAddGoal}
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -212,93 +219,96 @@ const Profile = () => {
         </div>
       </Card>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Stats Grid - Mobile Responsive */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
         {stats.map((stat, index) => {
           const IconComponent = stat.icon;
           return (
-            <Card key={index} className="p-6 bg-white shadow-sm text-center">
+            <Card key={index} className="p-3 md:p-6 bg-white shadow-sm text-center">
               <div className="flex items-center justify-center mb-2">
-                <IconComponent className="h-6 w-6 text-blue-600" />
+                <IconComponent className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              <p className="text-sm text-gray-600 mt-1">{stat.label}</p>
+              <p className="text-lg md:text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs md:text-sm text-gray-600 mt-1">{stat.label}</p>
             </Card>
           );
         })}
       </div>
 
-      {/* Profile Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+      {/* Profile Information - Mobile Stack Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <Card className="p-4 md:p-6 bg-white shadow-sm">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
           </div>
           
           <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <User className="h-5 w-5 text-gray-400" />
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+              <User className="h-5 w-5 text-gray-400 flex-shrink-0" />
               {editing ? (
-                <div className="flex-1">
-                  <Label htmlFor="name">Full Name</Label>
+                <div className="flex-1 w-full">
+                  <Label htmlFor="name" className="text-sm">Full Name</Label>
                   <Input
                     id="name"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     placeholder="Enter your full name"
+                    className="mt-1"
                   />
                 </div>
               ) : (
-                <div>
+                <div className="flex-1">
                   <p className="text-sm text-gray-600">Full Name</p>
                   <p className="font-medium">{profile.full_name || 'Not set'}</p>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center space-x-3">
-              <Mail className="h-5 w-5 text-gray-400" />
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+              <Mail className="h-5 w-5 text-gray-400 flex-shrink-0" />
+              <div className="flex-1">
                 <p className="text-sm text-gray-600">Email</p>
-                <p className="font-medium">{profile.email}</p>
+                <p className="font-medium break-all">{profile.email}</p>
                 <p className="text-xs text-gray-500">Email cannot be changed</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
-              <Phone className="h-5 w-5 text-gray-400" />
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+              <Phone className="h-5 w-5 text-gray-400 flex-shrink-0" />
               {editing ? (
-                <div className="flex-1">
-                  <Label htmlFor="phone">Phone</Label>
+                <div className="flex-1 w-full">
+                  <Label htmlFor="phone" className="text-sm">Phone</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="Enter your phone number"
+                    className="mt-1"
                   />
                 </div>
               ) : (
-                <div>
+                <div className="flex-1">
                   <p className="text-sm text-gray-600">Phone</p>
                   <p className="font-medium">{profile.phone || 'Not set'}</p>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center space-x-3">
-              <MapPin className="h-5 w-5 text-gray-400" />
+            <div className="flex flex-col sm:flex-row sm:items-start space-y-2 sm:space-y-0 sm:space-x-3">
+              <MapPin className="h-5 w-5 text-gray-400 flex-shrink-0 mt-1" />
               {editing ? (
-                <div className="flex-1">
-                  <Label htmlFor="address">Address</Label>
+                <div className="flex-1 w-full">
+                  <Label htmlFor="address" className="text-sm">Address</Label>
                   <Input
                     id="address"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     placeholder="Enter your address"
+                    className="mt-1"
                   />
                 </div>
               ) : (
-                <div>
+                <div className="flex-1">
                   <p className="text-sm text-gray-600">Address</p>
                   <p className="font-medium">{profile.address || 'Not set'}</p>
                 </div>
@@ -307,16 +317,16 @@ const Profile = () => {
           </div>
         </Card>
 
-        {/* Financial Goals */}
-        <Card className="p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+        {/* Financial Goals - Mobile Optimized */}
+        <Card className="p-4 md:p-6 bg-white shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 space-y-2 sm:space-y-0">
             <h3 className="text-lg font-semibold text-gray-900">Financial Goals</h3>
             {!editingGoal && !editing && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleAddGoal}
-                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                className="text-blue-600 border-blue-600 hover:bg-blue-50 w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Goal
@@ -324,12 +334,12 @@ const Profile = () => {
             )}
           </div>
           
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div className="border-l-4 border-blue-500 pl-4">
               <h4 className="font-medium text-gray-900">Current Monthly Goal</h4>
               {editing || editingGoal ? (
                 <div className="mt-2">
-                  <Label htmlFor="goal">Monthly Savings Goal (₹)</Label>
+                  <Label htmlFor="goal" className="text-sm">Monthly Savings Goal (₹)</Label>
                   <Input
                     id="goal"
                     type="number"
@@ -341,6 +351,7 @@ const Profile = () => {
                     placeholder="Enter your monthly goal"
                     min="0"
                     step="100"
+                    className="mt-1"
                   />
                   <p className="text-sm text-gray-500 mt-1">
                     Set a realistic monthly savings target to track your progress
@@ -348,7 +359,7 @@ const Profile = () => {
                 </div>
               ) : (
                 <>
-                  <p className="text-2xl font-bold text-blue-600">₹{profile.current_monthly_goal.toLocaleString()}</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">₹{profile.current_monthly_goal.toLocaleString()}</p>
                   <p className="text-sm text-gray-600 mt-1">
                     {profile.current_monthly_goal > 0 ? 'Active Goal' : 'No goal set yet'}
                   </p>
@@ -363,13 +374,13 @@ const Profile = () => {
 
             <div className="border-l-4 border-green-500 pl-4">
               <h4 className="font-medium text-gray-900">Account Status</h4>
-              <p className="text-2xl font-bold text-green-600">Active</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600">Active</p>
               <p className="text-sm text-gray-600 mt-1">All features enabled</p>
             </div>
 
             <div className="border-l-4 border-purple-500 pl-4">
               <h4 className="font-medium text-gray-900">Member Since</h4>
-              <p className="text-2xl font-bold text-purple-600">{memberSince}</p>
+              <p className="text-xl md:text-2xl font-bold text-purple-600">{memberSince}</p>
               <p className="text-sm text-gray-600 mt-1">
                 {new Date(profile.created_at).toLocaleDateString()}
               </p>
