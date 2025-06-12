@@ -9,6 +9,8 @@ interface DashboardMetrics {
   balance: number;
   savingsRate: string;
   pieChartData: Array<{ name: string; value: number }>;
+  monthlyGoal: number;
+  goalProgress: number;
 }
 
 export const useRealtimeDashboard = () => {
@@ -41,10 +43,19 @@ export const useRealtimeDashboard = () => {
         .gte('date', `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`)
         .lt('date', `${currentYear}-${String(currentMonth + 2).padStart(2, '0')}-01`);
 
+      // Fetch user profile for monthly goal
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('current_monthly_goal')
+        .eq('id', user.id)
+        .single();
+
       const totalIncome = incomeData?.reduce((sum, inc) => sum + inc.amount, 0) || 0;
       const totalExpenses = expensesData?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
       const balance = totalIncome - totalExpenses;
       const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : '0';
+      const monthlyGoal = profileData?.current_monthly_goal || 0;
+      const goalProgress = monthlyGoal > 0 ? Math.min((balance / monthlyGoal) * 100, 100) : 0;
 
       // Process pie chart data
       const expensesByCategory = expensesData?.reduce((acc, expense) => {
@@ -62,7 +73,9 @@ export const useRealtimeDashboard = () => {
         totalExpenses,
         balance,
         savingsRate,
-        pieChartData
+        pieChartData,
+        monthlyGoal,
+        goalProgress
       });
     } catch (error) {
       console.error('Error fetching dashboard metrics:', error);
@@ -111,9 +124,27 @@ export const useRealtimeDashboard = () => {
       )
       .subscribe();
 
+    const profileChannel = supabase
+      .channel('dashboard-profile')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        },
+        () => {
+          console.log('Profile changed, refreshing dashboard...');
+          fetchDashboardMetrics();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(expensesChannel);
       supabase.removeChannel(incomeChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, [user]);
 

@@ -5,32 +5,106 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { User, Calendar, Mail, Phone, MapPin, Edit } from 'lucide-react';
+import { User, Calendar, Mail, Phone, MapPin, Edit, Target, Save, X } from 'lucide-react';
 import { useState } from 'react';
+import { useRealtimeProfile } from '@/hooks/useRealtimeProfile';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Profile = () => {
+  const { user } = useAuth();
+  const { profile, loading, updateProfile } = useRealtimeProfile();
   const [editing, setEditing] = useState(false);
-  const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@email.com',
-    phone: '+91 98765 43210',
-    address: 'Mumbai, Maharashtra',
-    memberSince: '2024-01-15',
-    totalTransactions: 156,
-    currentSavingsGoal: 50000,
-    achievedGoals: 3,
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    phone: '',
+    address: '',
+    current_monthly_goal: 0,
   });
 
-  const handleSave = () => {
-    setEditing(false);
-    // In a real app, you would save to backend here
+  // Initialize form data when profile loads
+  useState(() => {
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || '',
+        phone: profile.phone || '',
+        address: profile.address || '',
+        current_monthly_goal: profile.current_monthly_goal || 0,
+      });
+    }
+  }, [profile]);
+
+  const handleEdit = () => {
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || '',
+        phone: profile.phone || '',
+        address: profile.address || '',
+        current_monthly_goal: profile.current_monthly_goal || 0,
+      });
+    }
+    setEditing(true);
   };
 
+  const handleCancel = () => {
+    setEditing(false);
+    if (profile) {
+      setFormData({
+        full_name: profile.full_name || '',
+        phone: profile.phone || '',
+        address: profile.address || '',
+        current_monthly_goal: profile.current_monthly_goal || 0,
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await updateProfile(formData);
+      if (error) {
+        toast.error('Failed to update profile: ' + error);
+      } else {
+        toast.success('Profile updated successfully!');
+        setEditing(false);
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Profile not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  const memberSince = new Date(profile.created_at).getFullYear();
+  const displayName = profile.full_name || profile.email || 'User';
+  const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
+
   const stats = [
-    { label: 'Total Transactions', value: profile.totalTransactions },
-    { label: 'Current Goal', value: `₹${profile.currentSavingsGoal.toLocaleString()}` },
-    { label: 'Goals Achieved', value: profile.achievedGoals },
-    { label: 'Member Since', value: new Date(profile.memberSince).getFullYear() },
+    { label: 'Monthly Goal', value: `₹${profile.current_monthly_goal.toLocaleString()}`, icon: Target },
+    { label: 'Member Since', value: memberSince, icon: Calendar },
+    { label: 'Account Type', value: 'Premium', icon: User },
+    { label: 'Status', value: 'Active', icon: User },
   ];
 
   return (
@@ -41,42 +115,73 @@ const Profile = () => {
           <Avatar className="h-24 w-24 border-4 border-white">
             <AvatarImage src="/placeholder.svg" />
             <AvatarFallback className="text-2xl bg-white text-blue-600">
-              {profile.name.split(' ').map(n => n[0]).join('')}
+              {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold">{profile.name}</h1>
+            <h1 className="text-3xl font-bold">{displayName}</h1>
             <p className="text-blue-100 mt-1">Personal Finance Tracker User</p>
             <div className="flex items-center space-x-4 mt-3">
               <Badge variant="secondary" className="bg-white/20 text-white">
                 <Calendar className="h-3 w-3 mr-1" />
-                Member since {new Date(profile.memberSince).getFullYear()}
+                Member since {memberSince}
               </Badge>
               <Badge variant="secondary" className="bg-white/20 text-white">
-                <User className="h-3 w-3 mr-1" />
-                {profile.totalTransactions} transactions
+                <Target className="h-3 w-3 mr-1" />
+                Goal: ₹{profile.current_monthly_goal.toLocaleString()}
               </Badge>
             </div>
           </div>
-          <Button
-            variant="outline"
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-            onClick={() => setEditing(!editing)}
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            {editing ? 'Cancel' : 'Edit Profile'}
-          </Button>
+          <div className="flex space-x-2">
+            {editing ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  onClick={handleCancel}
+                  disabled={saving}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  className="bg-green-600/20 border-green-400/20 text-white hover:bg-green-600/30"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                onClick={handleEdit}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Profile
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index} className="p-6 bg-white shadow-sm text-center">
-            <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-            <p className="text-sm text-gray-600 mt-1">{stat.label}</p>
-          </Card>
-        ))}
+        {stats.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <Card key={index} className="p-6 bg-white shadow-sm text-center">
+              <div className="flex items-center justify-center mb-2">
+                <IconComponent className="h-6 w-6 text-blue-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-sm text-gray-600 mt-1">{stat.label}</p>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Profile Information */}
@@ -94,36 +199,26 @@ const Profile = () => {
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
-                    value={profile.name}
-                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    placeholder="Enter your full name"
                   />
                 </div>
               ) : (
                 <div>
                   <p className="text-sm text-gray-600">Full Name</p>
-                  <p className="font-medium">{profile.name}</p>
+                  <p className="font-medium">{profile.full_name || 'Not set'}</p>
                 </div>
               )}
             </div>
 
             <div className="flex items-center space-x-3">
               <Mail className="h-5 w-5 text-gray-400" />
-              {editing ? (
-                <div className="flex-1">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                  />
-                </div>
-              ) : (
-                <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-medium">{profile.email}</p>
-                </div>
-              )}
+              <div>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-medium">{profile.email}</p>
+                <p className="text-xs text-gray-500">Email cannot be changed</p>
+              </div>
             </div>
 
             <div className="flex items-center space-x-3">
@@ -133,14 +228,15 @@ const Profile = () => {
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="Enter your phone number"
                   />
                 </div>
               ) : (
                 <div>
                   <p className="text-sm text-gray-600">Phone</p>
-                  <p className="font-medium">{profile.phone}</p>
+                  <p className="font-medium">{profile.phone || 'Not set'}</p>
                 </div>
               )}
             </div>
@@ -152,25 +248,18 @@ const Profile = () => {
                   <Label htmlFor="address">Address</Label>
                   <Input
                     id="address"
-                    value={profile.address}
-                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Enter your address"
                   />
                 </div>
               ) : (
                 <div>
                   <p className="text-sm text-gray-600">Address</p>
-                  <p className="font-medium">{profile.address}</p>
+                  <p className="font-medium">{profile.address || 'Not set'}</p>
                 </div>
               )}
             </div>
-
-            {editing && (
-              <div className="pt-4">
-                <Button onClick={handleSave} className="w-full">
-                  Save Changes
-                </Button>
-              </div>
-            )}
           </div>
         </Card>
 
@@ -180,21 +269,43 @@ const Profile = () => {
           
           <div className="space-y-6">
             <div className="border-l-4 border-blue-500 pl-4">
-              <h4 className="font-medium text-gray-900">Current Savings Goal</h4>
-              <p className="text-2xl font-bold text-blue-600">₹{profile.currentSavingsGoal.toLocaleString()}</p>
-              <p className="text-sm text-gray-600 mt-1">Emergency Fund - 75% Complete</p>
+              <h4 className="font-medium text-gray-900">Current Monthly Goal</h4>
+              {editing ? (
+                <div className="mt-2">
+                  <Label htmlFor="goal">Monthly Savings Goal (₹)</Label>
+                  <Input
+                    id="goal"
+                    type="number"
+                    value={formData.current_monthly_goal}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      current_monthly_goal: parseFloat(e.target.value) || 0 
+                    })}
+                    placeholder="Enter your monthly goal"
+                    min="0"
+                    step="100"
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold text-blue-600">₹{profile.current_monthly_goal.toLocaleString()}</p>
+                  <p className="text-sm text-gray-600 mt-1">Active Goal</p>
+                </>
+              )}
             </div>
 
             <div className="border-l-4 border-green-500 pl-4">
-              <h4 className="font-medium text-gray-900">Goals Achieved</h4>
-              <p className="text-2xl font-bold text-green-600">{profile.achievedGoals}</p>
-              <p className="text-sm text-gray-600 mt-1">Vacation Fund, Laptop Fund, Health Insurance</p>
+              <h4 className="font-medium text-gray-900">Account Status</h4>
+              <p className="text-2xl font-bold text-green-600">Active</p>
+              <p className="text-sm text-gray-600 mt-1">All features enabled</p>
             </div>
 
             <div className="border-l-4 border-purple-500 pl-4">
-              <h4 className="font-medium text-gray-900">Next Goal</h4>
-              <p className="text-2xl font-bold text-purple-600">₹1,00,000</p>
-              <p className="text-sm text-gray-600 mt-1">Investment Portfolio</p>
+              <h4 className="font-medium text-gray-900">Member Since</h4>
+              <p className="text-2xl font-bold text-purple-600">{memberSince}</p>
+              <p className="text-sm text-gray-600 mt-1">
+                {new Date(profile.created_at).toLocaleDateString()}
+              </p>
             </div>
           </div>
         </Card>
