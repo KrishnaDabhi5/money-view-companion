@@ -12,6 +12,14 @@ interface UserProfile {
   current_monthly_goal: number;
   created_at: string;
   updated_at: string;
+  preferred_language?: string;
+  preferred_currency?: string;
+  preferred_date_format?: string;
+  preferred_theme?: string;
+  biometrics_enabled?: boolean;
+  pin_enabled?: boolean;
+  auto_logout?: boolean;
+  notification_preferences?: any;
 }
 
 export const useRealtimeProfile = () => {
