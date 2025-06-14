@@ -1,8 +1,9 @@
 
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, PieChart, Wallet, User, Settings as SettingsIcon, Menu, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Home, PieChart, Wallet, User, LogOut, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,13 +12,19 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Budget', href: '/budget', icon: Wallet },
     { name: 'Analytics', href: '/analytics', icon: PieChart },
     { name: 'Profile', href: '/profile', icon: User },
-    { name: 'Settings', href: '/settings', icon: SettingsIcon },
   ];
 
   const isActive = (href: string) => {
@@ -76,6 +83,15 @@ const Layout = ({ children }: LayoutProps) => {
                 </Link>
               );
             })}
+            
+            {/* Sign Out Button */}
+            <button
+              onClick={handleSignOut}
+              className="flex items-center w-full px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200"
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              Sign Out
+            </button>
           </div>
         </nav>
       </div>
