@@ -5,20 +5,19 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { dashboard, budget, analytics, profile, signOut } from "lucide-react";
+import { Home, Wallet, PieChart, User, LogOut } from "lucide-react";
 
 const navItems = [
-  { name: "Dashboard", href: "/", icon: dashboard },
-  { name: "Budget", href: "/budget", icon: budget },
-  { name: "Analytics", href: "/analytics", icon: analytics },
-  { name: "Profile", href: "/profile", icon: profile },
+  { name: "Dashboard", href: "/", icon: Home },
+  { name: "Budget", href: "/budget", icon: Wallet },
+  { name: "Analytics", href: "/analytics", icon: PieChart },
+  { name: "Profile", href: "/profile", icon: User },
 ];
 
 export function AppSidebar() {
@@ -38,7 +37,7 @@ export function AppSidebar() {
         <div className="flex items-center space-x-2 mt-6 mb-6 ml-3">
           <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-500 rounded-lg flex items-center justify-center shadow-md">
             {/* Main FinTrack icon */}
-            <budget className="w-6 h-6 text-white" />
+            <Wallet className="w-6 h-6 text-white" />
           </div>
           <span className="ml-2 text-2xl font-bold text-gray-900 font-sans tracking-tight">FinTrack</span>
         </div>
@@ -76,7 +75,7 @@ export function AppSidebar() {
                   }}
                 >
                   <button type="button" className="flex items-center w-full">
-                    <signOut className="w-5 h-5 mr-3" />
+                    <LogOut className="w-5 h-5 mr-3" />
                     <span>Sign Out</span>
                   </button>
                 </SidebarMenuButton>
