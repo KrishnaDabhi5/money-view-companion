@@ -22,61 +22,11 @@ interface Transaction {
 const Dashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { metrics, loading: metricsLoading } = useRealtimeDashboard();
+  const { metrics, loading: metricsLoading, refetch: refetchMetrics } = useRealtimeDashboard();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch recent transactions
-  useEffect(() => {
-    if (user) {
-      fetchTransactions();
-    }
-  }, [user]);
-
-  // Set up real-time subscription for transactions list
-  useEffect(() => {
-    if (!user) return;
-
-    const expensesChannel = supabase
-      .channel('dashboard-transactions-expenses')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'expenses',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          console.log('Expenses changed, refreshing transactions...');
-          fetchTransactions();
-        }
-      )
-      .subscribe();
-
-    const incomeChannel = supabase
-      .channel('dashboard-transactions-income')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'income',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          console.log('Income changed, refreshing transactions...');
-          fetchTransactions();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(expensesChannel);
-      supabase.removeChannel(incomeChannel);
-    };
-  }, [user]);
-
   const fetchTransactions = async () => {
     try {
       // Fetch expenses
@@ -135,6 +85,56 @@ const Dashboard = () => {
     }
   };
 
+  useEffect(() => {
+    if (user) {
+      fetchTransactions();
+    }
+  }, [user]);
+
+  // Set up real-time subscription for transactions list
+  useEffect(() => {
+    if (!user) return;
+
+    const expensesChannel = supabase
+      .channel('dashboard-transactions-expenses')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expenses',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          console.log('Expenses changed, refreshing transactions...');
+          fetchTransactions();
+        }
+      )
+      .subscribe();
+
+    const incomeChannel = supabase
+      .channel('dashboard-transactions-income')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'income',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          console.log('Income changed, refreshing transactions...');
+          fetchTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(expensesChannel);
+      supabase.removeChannel(incomeChannel);
+    };
+  }, [user]);
+
   const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
     try {
       if (transaction.type === 'expense') {
@@ -168,7 +168,12 @@ const Dashboard = () => {
         description: `${transaction.type === 'expense' ? 'Expense' : 'Income'} added successfully`
       });
 
-      // Real-time subscription will handle the refresh automatically
+      // Force immediate refresh of both metrics and transactions
+      await Promise.all([
+        refetchMetrics(),
+        fetchTransactions()
+      ]);
+
     } catch (error) {
       console.error('Error adding transaction:', error);
       toast({
